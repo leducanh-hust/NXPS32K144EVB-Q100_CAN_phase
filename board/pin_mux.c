@@ -41,7 +41,7 @@ pin_labels:
 /*
  * TEXT BELOW IS USED AS SETTING FOR TOOLS *************************************
 BOARD_InitPins:
-- options: {callFromInitBoot: 'true', coreID: core0}
+- options: {callFromInitBoot: 'false', coreID: core0}
 - pin_list:
   - {pin_num: '9', peripheral: CAN0, signal: 'rxd, rxd', pin_signal: PTE4}
   - {pin_num: '8', peripheral: CAN0, signal: 'txd, txd', pin_signal: PTE5}

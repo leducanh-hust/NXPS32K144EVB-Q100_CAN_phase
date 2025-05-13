@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "DID.h"
 #include <stdbool.h>
+#include <malloc.h>
 
 /******************************************************************************
  * Definitions
@@ -98,11 +99,11 @@ void SID_2E_Handler(const can_message_t *requestMsg);
  * Functions
  ******************************************************************************/
 /*Timer callback function*/
-void timingFtmInst0_callback(void *userData)
-{
-    (void)userData;
-    PINS_DRV_TogglePins(GPIO_PORT, (1 << LED_GREEN));
-}
+//void timingFtmInst0_callback(void *userData)
+//{
+//    (void)userData;
+//    PINS_DRV_TogglePins(GPIO_PORT, (1 << LED_GREEN));
+//}
 
 void SendNRC(uint8_t SID, uint8_t NRC)
 {
@@ -150,7 +151,6 @@ void SID_22_Handler(const can_message_t *requestMsg)
 
     volatile bool hasValidDID = false;
     uint8_t num_DID_support = sizeof(support_DID_table) / sizeof(did_entry_t);
-
     for (uint8_t i = 0; i < num_DID_support; ++i)
     {
 
@@ -172,8 +172,8 @@ void SID_22_Handler(const can_message_t *requestMsg)
         return;
     }
 
-    uint8_t *buffer;
-    uint8_t dataLength = support_DID_table[0].readCallback(buffer);
+    uint8_t databuf[10] = {0};
+    uint8_t data_len = readDID(did, databuf);
     can_buff_config_t buffCfg = {
         .enableFD = false,
         .enableBRS = false,
@@ -183,18 +183,19 @@ void SID_22_Handler(const can_message_t *requestMsg)
 
     /* Configure TX buffer with index TX_MAILBOX*/
     CAN_ConfigTxBuff(&can_pal1_instance, TX_MAILBOX, &buffCfg);
-
+    
     /* Prepare message to be sent */
     can_message_t message = {
         .cs = 0U,
         .id = TX_MSG_ID,
-        .data[0] = 0x22 + 0x40,
-        .length = (3 + dataLength)
+        .data[0] = requestMsg->data[0] + 0x40,
+        .data[1] = requestMsg->data[1],
+        .data[2] = requestMsg->data[2],
+        .length = (6U)
     };
-
-    for(uint8_t i = 1; i <= dataLength; ++i)
+    for(uint8_t i = 1; i <= data_len; ++i)
     {
-        message.data[i] = buffer[i - 1];
+        message.data[i + 3] = databuf[i];
     }
     /* Send the information via CAN */
     CAN_Send(&can_pal1_instance, TX_MAILBOX, &message);
@@ -235,9 +236,9 @@ void GPIOInit(void)
     /* Setup button pin */
     PINS_DRV_SetPinsDirection(BTN_GPIO, ~((1 << BTN1_PIN) | (1 << BTN2_PIN)));
 
-    /* Setup button pins interrupt */
-    PINS_DRV_SetPinIntSel(BTN_PORT, BTN1_PIN, PORT_INT_RISING_EDGE);
-    PINS_DRV_SetPinIntSel(BTN_PORT, BTN2_PIN, PORT_INT_RISING_EDGE);
+//    /* Setup button pins interrupt */
+//    PINS_DRV_SetPinIntSel(BTN_PORT, BTN1_PIN, PORT_INT_RISING_EDGE);
+//    PINS_DRV_SetPinIntSel(BTN_PORT, BTN2_PIN, PORT_INT_RISING_EDGE);
 }
 
 /*!

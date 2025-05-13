@@ -23,3 +23,18 @@ did_entry_t support_DID_table[] = {
     {0x1008, readECULifetime, NULL, 3, 0}
 };
 
+uint8_t readDID(uint16_t did, uint8_t *databuf)
+{
+    uint8_t n = sizeof(support_DID_table) / sizeof(did_entry_t);
+    for(uint8_t i = 0; i < n; ++i)
+    {
+        if(support_DID_table[i].did == did)
+        {
+            if(support_DID_table[i].readCallback != NULL)
+                return support_DID_table[i].readCallback(databuf);
+        }
+        else 
+            return 0;
+    }
+    return 0;
+}

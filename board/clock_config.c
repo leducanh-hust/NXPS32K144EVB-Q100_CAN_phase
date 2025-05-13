@@ -53,7 +53,7 @@ outputs:
 - {id: FLEXCAN1_CLK.outFreq, value: 48 MHz}
 - {id: FLEXCAN2_CLK.outFreq, value: 48 MHz}
 - {id: FTFC0_CLK.outFreq, value: 24 MHz}
-- {id: FTM0_CLK.outFreq, value: 48 MHz, locked: true, accuracy: '0.001'}
+- {id: FTM0_CLK.outFreq, value: 8 MHz, locked: true, accuracy: '0.001'}
 - {id: FTM1_CLK.outFreq, value: 8 MHz}
 - {id: FTM2_CLK.outFreq, value: 8 MHz}
 - {id: FTM3_CLK.outFreq, value: 8 MHz}
@@ -95,7 +95,6 @@ settings:
 - {id: 'HSRUN:SCG.DIVCORE.scale', value: '1', locked: true}
 - {id: 'HSRUN:SCG.DIVSLOW.scale', value: '4', locked: true}
 - {id: 'HSRUN:SCG.SCSSEL.sel', value: SCG.SPLL_CLK}
-- {id: PCC.FTM0_CLK_SEL.sel, value: SCG.FIRCDIV1_CLK}
 - {id: PCC.LPTMR0_FRAC.scale, value: '1', locked: true}
 - {id: PCC.PREDIV.scale, value: '1', locked: true}
 - {id: PCC.PREDIVTRACE.scale, value: '1', locked: true}
@@ -210,7 +209,7 @@ peripheral_clock_config_t peripheralClockConfig0[NUM_OF_PERIPHERAL_CLOCKS_0] = {
     {
         .clockName = FTM0_CLK,
         .clkGate = true,
-        .clkSrc = CLK_SRC_FIRC_DIV1,
+        .clkSrc = CLK_SRC_SIRC_DIV1,
         .frac = MULTIPLY_BY_ONE,
         .divider = DIVIDE_BY_ONE,
     },

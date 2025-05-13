@@ -3,8 +3,8 @@
  * will be overwritten if the respective S32 Config Tools is used to update this file.
  **********************************************************************************************************************/
 
-#ifndef flash_1_H
-#define flash_1_H
+#ifndef flash_FTFC_H
+#define flash_FTFC_H
 
 /**
  * @page misra_violations MISRA-C:2012 violations
@@ -30,4 +30,4 @@ extern const flash_user_config_t Flash_InitConfig0;
 
 
 
-#endif /* flash_1_H */
+#endif /* flash_FTFC_H */

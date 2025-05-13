@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "sdk_project_config.h": "c"
+        "sdk_project_config.h": "c",
+        "stdbool.h": "c"
     }
 }

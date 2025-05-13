@@ -22,18 +22,18 @@ functionalGroups:
 /*******************************************************************************
  * Included files 
  ******************************************************************************/
-#include "peripherals_flash_1.h"
+#include "peripherals_flash_FTFC.h"
 
 /*******************************************************************************
- * flash_1 initialization code
+ * flash_FTFC initialization code
  ******************************************************************************/
 /* clang-format off */
 /* TEXT BELOW IS USED AS SETTING FOR TOOLS *************************************
 instance:
-- name: 'flash_1'
+- name: 'flash_FTFC'
 - type: 'flash'
 - mode: 'general'
-- custom_name_enabled: 'false'
+- custom_name_enabled: 'true'
 - type_id: 'flash'
 - functional_group: 'BOARD_InitPeripherals'
 - peripheral: 'FTFC'

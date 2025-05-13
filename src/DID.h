@@ -22,3 +22,4 @@ uint8_t readECULifetime(uint8_t * buffer)
 did_entry_t support_DID_table[] = {
     {0x1008, readECULifetime, NULL, 3, 0}
 };
+

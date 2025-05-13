@@ -20,7 +20,7 @@
 #include "pin_mux.h"
 #include "peripherals_osif_1.h"
 #include "peripherals_can_pal_1.h"
-#include "peripherals_flash_1.h"
+#include "peripherals_flash_FTFC.h"
 #include "peripherals_timing_pal_1.h"
 
 

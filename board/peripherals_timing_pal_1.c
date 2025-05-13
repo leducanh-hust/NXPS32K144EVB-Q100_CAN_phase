@@ -46,14 +46,14 @@ instance:
       - name: 'timingFtm_InitConfig0'
       - readonly: 'true'
       - ftmExt:
-        - ftmClockSource: 'FTM_CLOCK_SOURCE_SYSTEMCLK'
+        - ftmClockSource: 'FTM_CLOCK_SOURCE_EXTERNALCLK'
         - ftmPrescaler: 'FTM_CLOCK_DIVID_BY_128'
-        - finalValue: '31249'
+        - finalValue: '65535'
       - chanConfigList:
         - 0:
           - channel: '0U'
           - chanType: 'TIMER_CHAN_TYPE_CONTINUOUS'
-          - timerCallback: 'NULL'
+          - timerCallback: 'timingFtmInst0_callback'
           - callbackParameter: 'NULL'
  * BE CAREFUL MODIFYING THIS COMMENT - IT IS YAML SETTINGS FOR TOOLS **********/
 /* clang-format on */
@@ -78,16 +78,16 @@ const timer_chan_config_t timingFtmInst0_chanConfig[1] = {
     {
        .channel = 0U,
        .chanType = TIMER_CHAN_TYPE_CONTINUOUS,
-       .callback = NULL,
+       .callback = timingFtmInst0_callback,
        .callbackParam = NULL
     }
 };
 
 /* FTM specific extension configuration */
 extension_ftm_for_timer_t timingFtmInst0_extension = {
-   .clockSelect = FTM_CLOCK_SOURCE_SYSTEMCLK,
+   .clockSelect = FTM_CLOCK_SOURCE_EXTERNALCLK,
    .prescaler = FTM_CLOCK_DIVID_BY_128,
-   .finalValue = 31249
+   .finalValue = 65535
 };
 
 /* Timing configuration */

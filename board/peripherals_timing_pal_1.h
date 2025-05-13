@@ -35,6 +35,9 @@ extern extension_ftm_for_timer_t timingFtmInst0_extension;
 /* Timing configuration */
 extern const timer_config_t timingFtm_InitConfig0;
 
+/* Callback function of channel configuration 0 */
+extern void timingFtmInst0_callback(void * userData);
+
 
 
 #endif /* timing_pal_1_H */

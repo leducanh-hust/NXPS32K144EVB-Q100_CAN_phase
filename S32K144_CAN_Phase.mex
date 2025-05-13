@@ -144,7 +144,7 @@
                   <clock_output id="FLEXCAN1_CLK.outFreq" value="48 MHz" locked="false" accuracy=""/>
                   <clock_output id="FLEXCAN2_CLK.outFreq" value="48 MHz" locked="false" accuracy=""/>
                   <clock_output id="FTFC0_CLK.outFreq" value="24 MHz" locked="false" accuracy=""/>
-                  <clock_output id="FTM0_CLK.outFreq" value="48 MHz" locked="true" accuracy="0.001"/>
+                  <clock_output id="FTM0_CLK.outFreq" value="8 MHz" locked="true" accuracy="0.001"/>
                   <clock_output id="FTM1_CLK.outFreq" value="8 MHz" locked="false" accuracy=""/>
                   <clock_output id="FTM2_CLK.outFreq" value="8 MHz" locked="false" accuracy=""/>
                   <clock_output id="FTM3_CLK.outFreq" value="8 MHz" locked="false" accuracy=""/>
@@ -187,7 +187,6 @@
                   <setting id="HSRUN:SCG.DIVCORE.scale" value="1" locked="true"/>
                   <setting id="HSRUN:SCG.DIVSLOW.scale" value="4" locked="true"/>
                   <setting id="HSRUN:SCG.SCSSEL.sel" value="SCG.SPLL_CLK" locked="false"/>
-                  <setting id="PCC.FTM0_CLK_SEL.sel" value="SCG.FIRCDIV1_CLK" locked="false"/>
                   <setting id="PCC.LPTMR0_FRAC.scale" value="1" locked="true"/>
                   <setting id="PCC.PREDIV.scale" value="1" locked="true"/>
                   <setting id="PCC.PREDIVTRACE.scale" value="1" locked="true"/>
@@ -288,8 +287,8 @@
             <file path="board/can_pal_cfg.h" update_enabled="true"/>
             <file path="board/peripherals_can_pal_1.c" update_enabled="true"/>
             <file path="board/peripherals_can_pal_1.h" update_enabled="true"/>
-            <file path="board/peripherals_flash_1.c" update_enabled="true"/>
-            <file path="board/peripherals_flash_1.h" update_enabled="true"/>
+            <file path="board/peripherals_flash_FTFC.c" update_enabled="true"/>
+            <file path="board/peripherals_flash_FTFC.h" update_enabled="true"/>
             <file path="board/peripherals_osif_1.c" update_enabled="true"/>
             <file path="board/peripherals_osif_1.h" update_enabled="true"/>
             <file path="board/peripherals_timing_pal_1.c" update_enabled="true"/>
@@ -350,7 +349,7 @@
                         </struct>
                      </config_set>
                   </instance>
-                  <instance name="flash_1" uuid="0658ede8-ae6b-46db-932c-33540ced240b" type="flash" type_id="flash" mode="general" peripheral="FTFC" enabled="true" comment="" custom_name_enabled="false" editing_lock="false">
+                  <instance name="flash_FTFC" uuid="0658ede8-ae6b-46db-932c-33540ced240b" type="flash" type_id="flash" mode="general" peripheral="FTFC" enabled="true" comment="" custom_name_enabled="true" editing_lock="false">
                      <config_set name="flash_driver" quick_selection="flash_default">
                         <array name="flashConfig">
                            <struct name="0">
@@ -375,15 +374,15 @@
                            <setting name="name" value="timingFtm_InitConfig0"/>
                            <setting name="readonly" value="true"/>
                            <struct name="ftmExt">
-                              <setting name="ftmClockSource" value="FTM_CLOCK_SOURCE_SYSTEMCLK"/>
+                              <setting name="ftmClockSource" value="FTM_CLOCK_SOURCE_EXTERNALCLK"/>
                               <setting name="ftmPrescaler" value="FTM_CLOCK_DIVID_BY_128"/>
-                              <setting name="finalValue" value="31249"/>
+                              <setting name="finalValue" value="65535"/>
                            </struct>
                            <array name="chanConfigList">
                               <struct name="0">
                                  <setting name="channel" value="0U"/>
                                  <setting name="chanType" value="TIMER_CHAN_TYPE_CONTINUOUS"/>
-                                 <setting name="timerCallback" value="NULL"/>
+                                 <setting name="timerCallback" value="timingFtmInst0_callback"/>
                                  <setting name="callbackParameter" value="NULL"/>
                               </struct>
                            </array>

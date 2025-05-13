@@ -25,6 +25,10 @@
 #define BTN2_PIN 12U
 #define BTN_PORT PORTC
 #define BTN_PORT_IRQn PORTC_IRQn
+#define LED_BLUE 0U   /* pin PTD0 - RGB LED on DEV-KIT */
+#define LED_RED 15U   /* pin PTD15 - RGB LED on DEV-KIT */
+#define LED_GREEN 16U /* pin PTE16 - RGB LED on DEV-KIT */
+
 #else
 #define LED_PORT PORTC
 #define GPIO_PORT PTC
@@ -36,6 +40,9 @@
 #define BTN2_PIN 12U
 #define BTN_PORT PORTC
 #define BTN_PORT_IRQn PORTC_IRQn
+#define LED_BLUE 0U  /* pin PTC0 - LED0 on Mother board */
+#define LED_RED 1U   /* pin PTC1 - LED3 LED on Mother board */
+#define LED_GREEN 2U /* pin PTC2 - LED2 LED on Mother board */
 #endif
 
 /* Use this define to specify if the application runs as master or slave */
@@ -54,6 +61,12 @@
 #define RX_MAILBOX (1UL)
 #define RX_MSG_ID (0x768)
 #endif
+
+#define FTM_CHANNEL 0UL
+#define PERIOD_BY_NS 100000000UL
+
+#define TARGET_FLASH_ADDR 0x10003fff
+#define SECTOR_SIZE 2048U
 
 typedef enum
 {
@@ -78,11 +91,19 @@ bool checkCondition(uint16_t DID);
 // bool isSupportedDID(uint16_t DID);
 
 /*Service Handler Functions*/
-void SID_22_Handler(const can_message_t *message);
+void SID_22_Handler(const can_message_t *rcvMsg);
 
+void SID_2E_Handler(const can_message_t *requestMsg);
 /******************************************************************************
  * Functions
  ******************************************************************************/
+/*Timer callback function*/
+void timingFtmInst0_callback(void *userData)
+{
+    (void)userData;
+    PINS_DRV_TogglePins(GPIO_PORT, (1 << LED_GREEN));
+}
+
 void SendNRC(uint8_t SID, uint8_t NRC)
 {
     can_buff_config_t buffCfg = {
@@ -108,23 +129,24 @@ void SendNRC(uint8_t SID, uint8_t NRC)
 
 bool checkCondition(uint16_t DID)
 {
-    // Apply Function Logic here
     return true;
 }
 
-void SID_22_Handler(const can_message_t *rcvMsg)
+void SID_22_Handler(const can_message_t *requestMsg)
 {
-    if (rcvMsg->length < 3 || (rcvMsg->length - 1) % 2 != 0)
+    if (requestMsg->length < 3 || (requestMsg->length - 1) % 2 != 0)
     {
-        SendNRC(rcvMsg->data[0], 0x13);
+        SendNRC(requestMsg->data[0], 0x13);
         return;
     }
 
-    if (rcvMsg->length > 8)
+    if (requestMsg->length > 8)
     {
-        SendNRC(rcvMsg->data[0], 0x13);
+        SendNRC(requestMsg->data[0], 0x13);
         return;
     }
+
+    uint16_t did = requestMsg->data[1] << 8 | requestMsg->data[2];
 
     volatile bool hasValidDID = false;
     uint8_t num_DID_support = sizeof(support_DID_table) / sizeof(did_entry_t);
@@ -132,23 +154,26 @@ void SID_22_Handler(const can_message_t *rcvMsg)
     for (uint8_t i = 0; i < num_DID_support; ++i)
     {
 
-        if (checkCondition(support_DID_table[i].did))
+        if (support_DID_table[i].did == did && checkCondition(support_DID_table[i].did))
         {
             hasValidDID = true;
             continue;
         }
         else
         {
-            SendNRC(rcvMsg->data[0], 0x22);
+            SendNRC(requestMsg->data[0], 0x22);
             return;
         }
     }
 
     if (hasValidDID == false)
     {
-        SendNRC(rcvMsg->data[0], 0x31);
+        SendNRC(requestMsg->data[0], 0x31);
         return;
     }
+
+    uint8_t *buffer;
+    uint8_t dataLength = support_DID_table[0].readCallback(buffer);
     can_buff_config_t buffCfg = {
         .enableFD = false,
         .enableBRS = false,
@@ -164,13 +189,13 @@ void SID_22_Handler(const can_message_t *rcvMsg)
         .cs = 0U,
         .id = TX_MSG_ID,
         .data[0] = 0x22 + 0x40,
-        .data[1] = 0x10,
-        .data[2] = 0x08,
-        .data[3] = 0x00,
-        .data[4] = 0x04,
-        .data[5] = 0x7A,
-        .length = 6U};
+        .length = (3 + dataLength)
+    };
 
+    for(uint8_t i = 1; i <= dataLength; ++i)
+    {
+        message.data[i] = buffer[i - 1];
+    }
     /* Send the information via CAN */
     CAN_Send(&can_pal1_instance, TX_MAILBOX, &message);
     // SendPositiveResponse();
@@ -213,7 +238,6 @@ void GPIOInit(void)
     /* Setup button pins interrupt */
     PINS_DRV_SetPinIntSel(BTN_PORT, BTN1_PIN, PORT_INT_RISING_EDGE);
     PINS_DRV_SetPinIntSel(BTN_PORT, BTN2_PIN, PORT_INT_RISING_EDGE);
-
 }
 
 /*!
@@ -228,6 +252,7 @@ void GPIOInit(void)
 
 int main(void)
 {
+
     /* Do the initializations required for this application */
     BoardInit();
     GPIOInit();
@@ -259,10 +284,64 @@ int main(void)
         CAN_Receive(&can_pal1_instance, RX_MAILBOX, &recvMsg);
 
         /* Wait until the previous FlexCAN receive is completed */
-        while (CAN_GetTransferStatus(&can_pal1_instance, RX_MAILBOX) == STATUS_BUSY);
+        while (CAN_GetTransferStatus(&can_pal1_instance, RX_MAILBOX) == STATUS_BUSY)
+            ;
         if (recvMsg.id == RX_MSG_ID && recvMsg.data[0] == 0x22)
         {
             SID_22_Handler(&recvMsg);
         }
     }
+    // uint32_t eepromAddr;
+    // flash_ssd_config_t flashSSDConfig;
+    // // uint64_t ftmResolution;
+    // status_t status;
+    // // /* Initialize clock module */
+    // status = CLOCK_DRV_Init(&clockMan1_InitConfig0);
+    // DEV_ASSERT(status == STATUS_SUCCESS);
+    // /* Initialize LEDs and Button configuration */
+    // status = PINS_DRV_Init(NUM_OF_CONFIGURED_PINS0, g_pin_mux_InitConfigArr0);
+    // DEV_ASSERT(status == STATUS_SUCCESS);
+
+    // // status = TIMING_Init(&timingFtmInst0, &timingFtm_InitConfig0);
+    // // DEV_ASSERT(status == STATUS_SUCCESS);
+
+    // // status = TIMING_GetResolution(&timingFtmInst0, TIMER_RESOLUTION_TYPE_NANOSECOND, &ftmResolution);
+    // // DEV_ASSERT(status == STATUS_SUCCESS);
+
+    // // status = PINS_DRV_Init(NUM_OF_CONFIGURED_PINS0, g_pin_mux_InitConfigArr0);
+    // // DEV_ASSERT(status == STATUS_SUCCESS);
+
+    // status = FLASH_DRV_Init(&Flash_InitConfig0, &flashSSDConfig);
+    // DEV_ASSERT(status == STATUS_SUCCESS);
+
+    // uint8_t writeData[8] = {0x01, 0x04, 0x7A, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+    // volatile uint8_t readData[8] = {0};
+    // uint32_t i;
+
+    // if ((FEATURE_FLS_HAS_FLEX_NVM == 1u) && (FEATURE_FLS_HAS_FLEX_RAM == 1u))
+    //     // === Step 3: Partition if needed ===
+    //     if (flashSSDConfig.EEESize == 0u)
+    //     {
+    //         status = FLASH_DRV_DEFlashPartition(&flashSSDConfig, 0x02u, 0x08u, 0x0u, false, true);
+    //         DEV_ASSERT(status == STATUS_SUCCESS);
+
+    //         // Re-initialize after partitioning
+    //         status = FLASH_DRV_Init(&Flash_InitConfig0, &flashSSDConfig);
+    //         DEV_ASSERT(status == STATUS_SUCCESS);
+    //     }
+
+    // // === Step 4: Enable EEPROM emulation via FlexRAM ===
+    // status = FLASH_DRV_SetFlexRamFunction(&flashSSDConfig, EEE_ENABLE, 0x00u, NULL);
+    // DEV_ASSERT(status == STATUS_SUCCESS);
+
+    // // === Step 5: Write EEPROM ===
+    // eepromAddr = flashSSDConfig.EERAMBase;
+    // // status = FLASH_DRV_EEEWrite(&flashSSDConfig, eepromAddr, 8, writeData);
+    // // DEV_ASSERT(status == STATUS_SUCCESS);
+
+    // // === Step 6: Read back ===
+    // for (i = 0; i < 8; i++)
+    // {
+    //     readData[i] = *((volatile uint8_t *)(eepromAddr + i));
+    // }
 }

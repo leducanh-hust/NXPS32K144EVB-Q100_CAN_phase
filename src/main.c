@@ -610,7 +610,7 @@ void UDS_ReportDTCByStatusMask(const can_message_t *requestMsg)
  */
 uint8_t UDS_ReportDTCSnapshotRecordByDTCNumber(const can_message_t *requestMsg)
 {
-    uint8_t dtc[3];
+    uint32_t dtc;
     uint8_t recordNumber;
     uint8_t responseData[64];
     uint16_t responseLength = 0;
@@ -621,17 +621,24 @@ uint8_t UDS_ReportDTCSnapshotRecordByDTCNumber(const can_message_t *requestMsg)
         return NRC_RESPONSE_INCORRECT_LENGTH_OR_FORMAT;
     }
 
-    dtc[0] = requestMsg->data[1];
-    dtc[1] = requestMsg->data[2];
-    dtc[2] = requestMsg->data[3];
-
-    if (requestMsg->length > 4)
+    dtc = (requestMsg->data[2] << 16) | (requestMsg->data[3] << 8) | requestMsg->data[4];
+    
+    recordNumber = requestMsg->data[5];
+    if (recordNumber > 0xFF)
     {
-        recordNumber = requestMsg->data[4];
+        SendNRC(requestMsg->data[0], NRC_RESPONSE_REQUEST_OUT_OF_RANGE);
+        return ;
     }
-    else
+    // Check if the DTC is valid
+    UDS_DTC_Snapshot_t *dtcSnapshot = NULL;
+    for (uint16_t i = 0; i < NUM_DTC_ENTRIES; i++)
     {
-        recordNumber = 0x00; // Default record number
+        if (dtcTable[i].dtcCode == dtc)
+        {
+            dtcSnapshot = &dtcTable[i];
+            break;
+        }
     }
 
 }
+

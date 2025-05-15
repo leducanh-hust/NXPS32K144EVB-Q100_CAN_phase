@@ -29,6 +29,6 @@ typedef struct
 } UDS_DTC_ExtendedData_t;
 
 UDS_DTC_t dtcTable[2] = {
-    {0x00A3D800, 0x00}, // DTC Description: Steering Button Stuck (Left button fault)
-    {0x00A3D900, 0x01}, // DTC Description: Trailer Reverse Steering Button Stuck ( Right button fault)
+    {0x00A3D800, 0x01, {0x08}, 0x01}, // DTC Description: Steering Button Stuck (Left button fault)
+    {0x00A3D900, 0x01, {0x09}, 0x01}, // DTC Description: Trailer Reverse Steering Button Stuck ( Right button fault)
 };

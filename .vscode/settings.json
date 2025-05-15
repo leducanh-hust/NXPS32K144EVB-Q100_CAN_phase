@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "sdk_project_config.h": "c",
-        "stdbool.h": "c"
+        "stdbool.h": "c",
+        "cstdint": "c"
     }
 }

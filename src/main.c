@@ -3,7 +3,9 @@
 #include <stdint.h>
 #include "DID.h"
 #include <stdbool.h>
+#include <string.h>
 #include <malloc.h>
+#include "DTC.h"
 
 /******************************************************************************
  * Definitions
@@ -66,8 +68,52 @@
 #define FTM_CHANNEL 0UL
 #define PERIOD_BY_NS 100000000UL
 
-#define TARGET_FLASH_ADDR 0x10003fff
-#define SECTOR_SIZE 2048U
+/******************************************************************************
+ UDS Defines begin
+ ******************************************************************************/
+#define SID_22 0x22
+#define SID_2E 0x2E
+#define SID_19 0x19
+
+#define UDS_POSITIVE_RESPONSE 0x00
+#define NRC_RESPONSE_SUBFUNCTION_NOT_SUPPORTED 0x12 // Exclusively for Service 0x19
+#define NRC_RESPONSE_INCORRECT_LENGTH_OR_FORMAT 0x13
+#define NRC_RESPONSE_CONDITIONS_NOT_CORRECT 0x22
+#define NRC_RESPONSE_REQUEST_OUT_OF_RANGE 0x31
+
+/* Service 19 - Read DTC Information Sub-functions */
+#define SF_REPORT_NUMBER_OF_DTC_BY_STATUS_MASK 0x01
+#define SF_REPORT_DTC_BY_STATUS_MASK 0x02
+#define SF_REPORT_DTC_SNAPSHOT_RECORD_BY_DTC_NUMBER 0x04
+#define SF_REPORT_DTC_EXTENDED_DATA_RECORD_BY_DTC_NUMBER 0x06
+
+/* DTC Status Bit Masks */
+#define DTC_STATUS_TEST_FAILED 0x01
+#define DTC_STATUS_TEST_FAILED_THIS_OPERATION_CYCLE 0x02
+#define DTC_STATUS_PENDING 0x04
+#define DTC_STATUS_CONFIRMED 0x08
+#define DTC_STATUS_TEST_NOT_COMPLETED_SINCE_CLEAR 0x10
+#define DTC_STATUS_TEST_FAILED_SINCE_CLEAR 0x20
+#define DTC_STATUS_TEST_NOT_COMPLETED_THIS_CYCLE 0x40
+#define DTC_STATUS_WARNING_INDICATOR_REQUESTED 0x80
+
+/* DTC Format Identifiers */
+#define DTC_FORMAT_ISO15031_6 0x01   /* SAE J2012 format */
+#define DTC_FORMAT_ISO14229_1 0x02   /* ISO 14229-1 format */
+#define DTC_FORMAT_SAE_J1939_73 0x03 /* SAE J1939-73 format */
+
+/******************************************************************************
+ UDS Defines end
+ ******************************************************************************/
+
+
+// extern const uint8_t __nvm_did_start__[]; // Start of NVM section
+// extern const uint8_t __nvm_did_end__[];   // Optional: end of section
+
+// // Define the base address as a constant
+// #define DID_NVM_BASE_ADDR ((uint32_t)__nvm_did_start__)
+// #define DID_NVM_END_ADDR ((uint32_t)__nvm_did_end__)
+// #define DID_NVM_SIZE (DID_NVM_END_ADDR - DID_NVM_BASE_ADDR)
 
 typedef enum
 {
@@ -86,12 +132,15 @@ extern did_entry_t support_DID_table[];
 void BoardInit(void);
 void GPIOInit(void);
 
-// Support Functions
+/*******************************************************************************
+ * Helper Functions
+ *******************************************************************************/
 void SendNRC(uint8_t SID, uint8_t NRC);
-bool checkCondition(uint16_t DID);
-// bool isSupportedDID(uint16_t DID);
+bool checkCondition(uint16_t did);
 
-/*Service Handler Functions*/
+/******************************************************************************* 
+*cService Handler Functions
+********************************************************************************/
 void SID_22_Handler(const can_message_t *rcvMsg);
 
 void SID_2E_Handler(const can_message_t *requestMsg);
@@ -99,11 +148,11 @@ void SID_2E_Handler(const can_message_t *requestMsg);
  * Functions
  ******************************************************************************/
 /*Timer callback function*/
-//void timingFtmInst0_callback(void *userData)
+// void timingFtmInst0_callback(void *userData)
 //{
-//    (void)userData;
-//    PINS_DRV_TogglePins(GPIO_PORT, (1 << LED_GREEN));
-//}
+//     (void)userData;
+//     PINS_DRV_TogglePins(GPIO_PORT, (1 << LED_GREEN));
+// }
 
 void SendNRC(uint8_t SID, uint8_t NRC)
 {
@@ -128,8 +177,22 @@ void SendNRC(uint8_t SID, uint8_t NRC)
     CAN_Send(&can_pal1_instance, TX_MAILBOX, &message);
 }
 
-bool checkCondition(uint16_t DID)
+bool checkCondition(uint16_t did)
 {
+    if (did == 1008)
+        return true;
+    return false;
+}
+
+bool isBlank(uint32_t address)
+{
+    uint8_t *ptr = (uint8_t *)address;
+    for (uint32_t i = 0; i < 8; ++i)
+    {
+        if (*ptr != 0xFF)
+            return false;
+        ptr++;
+    }
     return true;
 }
 
@@ -183,7 +246,7 @@ void SID_22_Handler(const can_message_t *requestMsg)
 
     /* Configure TX buffer with index TX_MAILBOX*/
     CAN_ConfigTxBuff(&can_pal1_instance, TX_MAILBOX, &buffCfg);
-    
+
     /* Prepare message to be sent */
     can_message_t message = {
         .cs = 0U,
@@ -191,15 +254,69 @@ void SID_22_Handler(const can_message_t *requestMsg)
         .data[0] = requestMsg->data[0] + 0x40,
         .data[1] = requestMsg->data[1],
         .data[2] = requestMsg->data[2],
-        .length = (6U)
-    };
-    for(uint8_t i = 1; i <= data_len; ++i)
+        .length = (6U)};
+    for (uint8_t i = 1; i <= data_len; ++i)
     {
         message.data[i + 3] = databuf[i];
     }
     /* Send the information via CAN */
     CAN_Send(&can_pal1_instance, TX_MAILBOX, &message);
     // SendPositiveResponse();
+}
+
+void SID_2E_Handler(const can_message_t *requestMsg)
+{
+    if (requestMsg < 4 || requestMsg->length > 8)
+    {
+        SendNRC(requestMsg->data[0], 0x13);
+        return;
+    }
+
+    uint16_t did = requestMsg->data[1] << 8 | requestMsg->data[2];
+
+    did_entry_t *did_entry = findByDID(did);
+    if (did_entry == NULL)
+    {
+        SendNRC(requestMsg->data[0], 0x31);
+        return;
+    }
+
+    uint8_t len_by_request = requestMsg->length - 3;
+    if (len_by_request != did_entry->data_length)
+    {
+        SendNRC(requestMsg->data[0], 0x13);
+        return;
+    }
+
+    if (checkCondition(did_entry->did) == false)
+    {
+        SendNRC(requestMsg->data[0], 0x22);
+        return;
+    }
+
+    /*Send positive response*/
+    can_buff_config_t buffCfg = {
+        .enableFD = false,
+        .enableBRS = false,
+        .fdPadding = 0U,
+        .idType = CAN_MSG_ID_STD,
+        .isRemote = false
+    };
+
+    /* Configure TX buffer with index TX_MAILBOX*/
+    CAN_ConfigTxBuff(&can_pal1_instance, TX_MAILBOX, &buffCfg);
+
+    /* Prepare message to be sent */
+    can_message_t message = {
+        .cs = 0U,
+        .id = TX_MSG_ID,
+        .data[0] = requestMsg->data[0] + 0x40,
+        .data[1] = requestMsg->data[1],
+        .data[2] = requestMsg->data[2],
+        .length = (3U)
+    };
+    /* Send the information via CAN */
+    CAN_Send(&can_pal1_instance, TX_MAILBOX, &message);
 }
 
 /*
@@ -236,9 +353,9 @@ void GPIOInit(void)
     /* Setup button pin */
     PINS_DRV_SetPinsDirection(BTN_GPIO, ~((1 << BTN1_PIN) | (1 << BTN2_PIN)));
 
-//    /* Setup button pins interrupt */
-//    PINS_DRV_SetPinIntSel(BTN_PORT, BTN1_PIN, PORT_INT_RISING_EDGE);
-//    PINS_DRV_SetPinIntSel(BTN_PORT, BTN2_PIN, PORT_INT_RISING_EDGE);
+    //    /* Setup button pins interrupt */
+    //    PINS_DRV_SetPinIntSel(BTN_PORT, BTN1_PIN, PORT_INT_RISING_EDGE);
+    //    PINS_DRV_SetPinIntSel(BTN_PORT, BTN2_PIN, PORT_INT_RISING_EDGE);
 }
 
 /*!
@@ -287,62 +404,234 @@ int main(void)
         /* Wait until the previous FlexCAN receive is completed */
         while (CAN_GetTransferStatus(&can_pal1_instance, RX_MAILBOX) == STATUS_BUSY)
             ;
-        if (recvMsg.id == RX_MSG_ID && recvMsg.data[0] == 0x22)
+        switch (recvMsg.data[0])
         {
+        case SID_22:
+            /* code */
             SID_22_Handler(&recvMsg);
+            break;
+        case SID_2E:
+            /* code */
+            SID_2E_Handler(&recvMsg);
+            break;
+        case SID_19:
+            /* code */
+            break;
+        default:
+            break;
         }
     }
-    // uint32_t eepromAddr;
-    // flash_ssd_config_t flashSSDConfig;
+    uint32_t DFlashAddr;
+    flash_ssd_config_t flashSSDConfig;
     // // uint64_t ftmResolution;
     // status_t status;
-    // // /* Initialize clock module */
+    // /* Initialize clock module */
     // status = CLOCK_DRV_Init(&clockMan1_InitConfig0);
     // DEV_ASSERT(status == STATUS_SUCCESS);
     // /* Initialize LEDs and Button configuration */
     // status = PINS_DRV_Init(NUM_OF_CONFIGURED_PINS0, g_pin_mux_InitConfigArr0);
     // DEV_ASSERT(status == STATUS_SUCCESS);
 
-    // // status = TIMING_Init(&timingFtmInst0, &timingFtm_InitConfig0);
-    // // DEV_ASSERT(status == STATUS_SUCCESS);
+    // status = TIMING_Init(&timingFtmInst0, &timingFtm_InitConfig0);
+    // DEV_ASSERT(status == STATUS_SUCCESS);
 
-    // // status = TIMING_GetResolution(&timingFtmInst0, TIMER_RESOLUTION_TYPE_NANOSECOND, &ftmResolution);
-    // // DEV_ASSERT(status == STATUS_SUCCESS);
+    // status = TIMING_GetResolution(&timingFtmInst0, TIMER_RESOLUTION_TYPE_NANOSECOND, &ftmResolution);
+    // DEV_ASSERT(status == STATUS_SUCCESS);
 
-    // // status = PINS_DRV_Init(NUM_OF_CONFIGURED_PINS0, g_pin_mux_InitConfigArr0);
-    // // DEV_ASSERT(status == STATUS_SUCCESS);
+    // status = PINS_DRV_Init(NUM_OF_CONFIGURED_PINS0, g_pin_mux_InitConfigArr0);
+    // DEV_ASSERT(status == STATUS_SUCCESS);
 
     // status = FLASH_DRV_Init(&Flash_InitConfig0, &flashSSDConfig);
     // DEV_ASSERT(status == STATUS_SUCCESS);
 
-    // uint8_t writeData[8] = {0x01, 0x04, 0x7A, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+    // uint8_t writeData[3] = {0x01, 0x04, 0x7A};
+    // // FLASH_DRV_Program(&flashSSDConfig, 0x10010000, 4, writeData);
     // volatile uint8_t readData[8] = {0};
     // uint32_t i;
-
-    // if ((FEATURE_FLS_HAS_FLEX_NVM == 1u) && (FEATURE_FLS_HAS_FLEX_RAM == 1u))
-    //     // === Step 3: Partition if needed ===
-    //     if (flashSSDConfig.EEESize == 0u)
-    //     {
-    //         status = FLASH_DRV_DEFlashPartition(&flashSSDConfig, 0x02u, 0x08u, 0x0u, false, true);
-    //         DEV_ASSERT(status == STATUS_SUCCESS);
-
-    //         // Re-initialize after partitioning
-    //         status = FLASH_DRV_Init(&Flash_InitConfig0, &flashSSDConfig);
-    //         DEV_ASSERT(status == STATUS_SUCCESS);
-    //     }
 
     // // === Step 4: Enable EEPROM emulation via FlexRAM ===
     // status = FLASH_DRV_SetFlexRamFunction(&flashSSDConfig, EEE_ENABLE, 0x00u, NULL);
     // DEV_ASSERT(status == STATUS_SUCCESS);
 
     // // === Step 5: Write EEPROM ===
-    // eepromAddr = flashSSDConfig.EERAMBase;
-    // // status = FLASH_DRV_EEEWrite(&flashSSDConfig, eepromAddr, 8, writeData);
-    // // DEV_ASSERT(status == STATUS_SUCCESS);
+    // DFlashAddr = flashSSDConfig.DFlashBase;
+    // status = FLASH_DRV_EEEWrite(&flashSSDConfig, DFlashAddr, 8, writeData);
+    // DEV_ASSERT(status == STATUS_SUCCESS);
 
     // // === Step 6: Read back ===
     // for (i = 0; i < 8; i++)
     // {
-    //     readData[i] = *((volatile uint8_t *)(eepromAddr + i));
+    //     readData[i] = *((volatile uint8_t *)(DFlashAddr + i));
     // }
+}
+
+uint16_t UDS_CountDTCByStatusMask(uint8_t statusMask)
+{
+    uint16_t count = 0;
+    uint16_t i;
+    for (i = 0; i < NUM_DTC_ENTRIES; i++)
+    {
+        if ((dtcTable[i].statusByte & statusMask) != 0)
+        {
+            count++;
+        }
+    }
+
+    return count;
+}
+
+void SID_19_Handler(const can_message_t *requestMsg)
+{
+    uint8_t subFunction = requestMsg->data[1];
+    switch (subFunction)
+    {
+    case SF_REPORT_NUMBER_OF_DTC_BY_STATUS_MASK:
+        UDS_ReportNumberOfDTCByStatusMask(requestMsg);
+        break;
+        
+    case SF_REPORT_DTC_BY_STATUS_MASK:
+        UDS_ReportDTCByStatusMask(requestMsg);
+        break;
+
+    case SF_REPORT_DTC_SNAPSHOT_RECORD_BY_DTC_NUMBER:
+        // UDS_ReportDTCByStatusMask(requestMsg);
+        break;
+
+    case SF_REPORT_DTC_EXTENDED_DATA_RECORD_BY_DTC_NUMBER:
+        // UDS_ReportDTCByStatusMask(requestMsg);
+        break;
+
+    default:
+        /* Send negative response code */
+        SendNRC(requestMsg->data[0], NRC_RESPONSE_SUBFUNCTION_NOT_SUPPORTED);
+        break;
+    }
+}
+
+/**
+ * Handler for subfunction 0x01: Report Number of DTC by Status Mask
+ *
+ * Request format:  [SF(0x01)][StatusMask]
+ * Response format: [SF(0x01)][StatusMask][DTCFormatIdentifier][DTCCount(2 bytes)]
+ */
+void UDS_ReportNumberOfDTCByStatusMask(const can_message_t *requestMsg)
+{
+    uint8_t dtcStatusMask;
+    uint16_t matchDTCCount;
+    if(requestMsg->length < 2)
+    {
+        SendNRC(requestMsg->data[0], NRC_RESPONSE_INCORRECT_LENGTH_OR_FORMAT);
+        return;
+    }
+
+    dtcStatusMask = requestMsg->data[2];
+    matchDTCCount = UDS_CountDTCByStatusMask(dtcStatusMask);
+    can_buff_config_t buffCfg = {
+        .enableFD = false,
+        .enableBRS = false,
+        .fdPadding = 0U,
+        .idType = CAN_MSG_ID_STD,
+        .isRemote = false};
+    /* Configure TX buffer with index TX_MAILBOX*/
+    CAN_ConfigTxBuff(&can_pal1_instance, TX_MAILBOX, &buffCfg);
+
+    /* Prepare message to be sent */
+    can_message_t message = {
+        .cs = 0U,
+        .id = TX_MSG_ID,
+        .data[0] = requestMsg->data[0] + 0x40,
+        .data[1] = requestMsg->data[1],
+        .data[2] = dtcStatusMask,
+        .data[3] = DTC_FORMAT_ISO14229_1,
+        .data[4] = (uint8_t)((matchDTCCount >> 8) & 0xFF),
+        .data[5] = (uint8_t)(matchDTCCount & 0xFF),
+        .length = 5U
+    };
+    /* Send the information via CAN */
+    CAN_Send(&can_pal1_instance, TX_MAILBOX, &message);
+}
+
+/**
+ * Handler for subfunction 0x02: Report DTC by Status Mask
+ *
+ * Request format:  [SF(0x02)][StatusMask]
+ * Response format: [SF(0x02)][StatusMask][DTCFormatIdentifier][DTC1(3 bytes)][Status1][DTC2(3 bytes)][Status2]...
+ */
+void UDS_ReportDTCByStatusMask(const can_message_t *requestMsg)
+{
+    uint8_t dtcStatusMask;
+
+    if(requestMsg->length < 2)
+    {
+        SendNRC(requestMsg->data[0], NRC_RESPONSE_INCORRECT_LENGTH_OR_FORMAT);
+        return;
+    }
+
+    dtcStatusMask = requestMsg->data[2];
+
+    can_buff_config_t buffCfg = {
+        .enableFD = false,
+        .enableBRS = false,
+        .fdPadding = 0U,
+        .idType = CAN_MSG_ID_STD,
+        .isRemote = false};
+    /* Configure TX buffer with index TX_MAILBOX*/
+    CAN_ConfigTxBuff(&can_pal1_instance, TX_MAILBOX, &buffCfg);
+
+    /* Prepare message to be sent */
+    can_message_t message = {
+        .cs = 0U,
+        .id = TX_MSG_ID,
+        .data[0] = requestMsg->data[0] + 0x40,
+        .data[1] = requestMsg->data[1],
+        .data[2] = dtcStatusMask,
+        .data[3] = DTC_FORMAT_ISO14229_1,
+        .length = 3U
+    };
+    for(uint8_t i = 0; i < NUM_DTC_ENTRIES; i++)
+    {
+        if((dtcTable[i].statusByte & dtcStatusMask) != 0)
+        {
+            message.data[message.length++] = (uint8_t)((dtcTable[i].dtcCode >> 16) & 0xFF);
+            message.data[message.length++] = (uint8_t)((dtcTable[i].dtcCode >> 8) & 0xFF);
+            message.data[message.length++] = (uint8_t)(dtcTable[i].dtcCode & 0xFF);
+            message.data[message.length++] = dtcTable[i].statusByte;
+        }
+    }
+    /* Send the information via CAN */
+    CAN_Send(&can_pal1_instance, TX_MAILBOX, &message);
+}
+
+/**
+ * Handler for subfunction 0x04: Report DTC Snapshot Record by DTC Number
+ *
+ * Request format:  [SF(0x04)][DTC(3 bytes)][RecordNumber (optional)]
+ * Response format: [SF(0x04)][DTC(3 bytes)][RecordNumber][SnapshotData]...
+ */
+uint8_t UDS_ReportDTCSnapshotRecordByDTCNumber(const can_message_t *requestMsg)
+{
+    uint8_t dtc[3];
+    uint8_t recordNumber;
+    uint8_t responseData[64];
+    uint16_t responseLength = 0;
+
+    if (requestMsg->length < 4)
+    {
+        SendNRC(requestMsg->data[0], NRC_RESPONSE_INCORRECT_LENGTH_OR_FORMAT);
+        return NRC_RESPONSE_INCORRECT_LENGTH_OR_FORMAT;
+    }
+
+    dtc[0] = requestMsg->data[1];
+    dtc[1] = requestMsg->data[2];
+    dtc[2] = requestMsg->data[3];
+
+    if (requestMsg->length > 4)
+    {
+        recordNumber = requestMsg->data[4];
+    }
+    else
+    {
+        recordNumber = 0x00; // Default record number
+    }
+
 }

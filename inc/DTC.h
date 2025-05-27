@@ -8,8 +8,8 @@
 #define DTC_H_
 
 #include <stdint.h>
+#include "NVM.h"
 
-#define NUM_DTC_ENTRIES 2
 
 /* DTC Structure */
 typedef struct

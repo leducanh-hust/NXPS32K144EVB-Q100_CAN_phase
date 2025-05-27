@@ -1,7 +1,7 @@
 #include "sdk_project_config.h"
 #include <interrupt_manager.h>
 #include <stdint.h>
-//#include "UDS.c"
+#include "UDS.h"
 #include "NVM.h"
 #include <stdbool.h>
 #include <string.h>
@@ -147,59 +147,13 @@ int main(void)
     /* Do the initializations required for this application */
     BoardInit();
     GPIOInit();
-    // CAN_Init(&can_pal1_instance, &can_pal1_Config0);
-
-    // /* Set information about the data to be sent
-    //  *  - Standard message ID
-    //  *  - Bit rate switch enabled to use a different bitrate for the data segment
-    //  *  - Flexible data rate enabled
-    //  *  - Use zeros for FD padding
-    //  */
-    // can_buff_config_t buffCfg = {
-    //     .enableFD = false,
-    //     .enableBRS = false,
-    //     .fdPadding = 0U,
-    //     .idType = CAN_MSG_ID_STD,
-    //     .isRemote = false};
-
-    // /* Configure RX buffer with index RX_MAILBOX */
-    // CAN_ConfigRxBuff(&can_pal1_instance, RX_MAILBOX, &buffCfg, RX_MSG_ID);
-
-    // while (1)
-    // {
-    //     /* Define receive buffer */
-    //     can_message_t recvMsg;
-
-    //     /* Start receiving data in RX_MAILBOX. */
-    //     CAN_Receive(&can_pal1_instance, RX_MAILBOX, &recvMsg);
-
-    //     /* Wait until the previous FlexCAN receive is completed */
-    //     while (CAN_GetTransferStatus(&can_pal1_instance, RX_MAILBOX) == STATUS_BUSY)
-    //         ;
-    //     switch (recvMsg.data[0])
-    //     {
-    //     case SID_22:
-    //         /* code */
-    //         SID_22_Handler(&recvMsg);
-    //         break;
-    //     case SID_2E:
-    //         /* code */
-    //         SID_2E_Handler(&recvMsg);
-    //         break;
-    //     case SID_19:
-    //         /* code */
-    //         break;
-    //     default:
-    //         break;
-    //     }
-    // }
-
+    CAN_Init(&can_pal1_instance, &can_pal1_Config0);
     status_t status;
     /* Initialize the Flash driver */
     status = FLASH_DRV_Init(&Flash_InitConfig0, &flashSSDConfig);
     DEV_ASSERT(status == STATUS_SUCCESS);
 
-    uint8_t writeData[] = {0x01, 0x04, 0x7A, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+    // uint8_t writeData[] = {0x01, 0x04, 0x7A, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
     // Check if the device was already partitioned
     if ((FEATURE_FLS_HAS_FLEX_NVM == 1u) && (FEATURE_FLS_HAS_FLEX_RAM == 1u))
@@ -217,11 +171,59 @@ int main(void)
     status = FLASH_DRV_SetFlexRamFunction(&flashSSDConfig, EEE_ENABLE, 0x00u, NULL);
     DEV_ASSERT(status == STATUS_SUCCESS);
 
-    NVM_Write(0x00, writeData, 8);
-
+    //Write DID 1008 data first for testing purpose
+    // uint8_t writeData[] = {0x01, 0x05, 0x6A, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+    // NVM_Write(0x00, writeData, sizeof(writeData)/sizeof(writeData[0]));
     //Verify Data After Write
-    uint8_t readData[8] = {0};
-    NVM_Read(0x00, readData, 4);
+    volatile uint8_t readData[8] = {0};
+    NVM_Read(0x00, readData, sizeof(readData)/sizeof(readData[0]));
+    /* Set information about the data to be sent
+     *  - Standard message ID
+     *  - Bit rate switch enabled to use a different bitrate for the data segment
+     *  - Flexible data rate enabled
+     *  - Use zeros for FD padding
+     */
+    can_buff_config_t buffCfg = {
+        .enableFD = false,
+        .enableBRS = false,
+        .fdPadding = 0U,
+        .idType = CAN_MSG_ID_STD,
+        .isRemote = false};
+
+    /* Configure RX buffer with index RX_MAILBOX */
+    CAN_ConfigRxBuff(&can_pal1_instance, RX_MAILBOX, &buffCfg, RX_MSG_ID);
+
+    while (1)
+    {
+        /* Define receive buffer */
+        can_message_t recvMsg;
+
+        /* Start receiving data in RX_MAILBOX. */
+        CAN_Receive(&can_pal1_instance, RX_MAILBOX, &recvMsg);
+
+        /* Wait until the previous FlexCAN receive is completed */
+        while (CAN_GetTransferStatus(&can_pal1_instance, RX_MAILBOX) == STATUS_BUSY)
+            ;
+        switch (recvMsg.data[0])
+        {
+        case 0x22:
+            /* code */
+            UDS_ReadDataByIdentifier(&recvMsg);
+            break;
+        case 0x2E:
+            /* code */
+            UDS_WriteDataByIdentifier(&recvMsg);
+            break;
+        case 0x19:
+            /* code */
+            UDS_ReadDTCInformation(&recvMsg);
+            break;
+        default:
+            /* If the received message is not a valid UDS service, send a Negative Response Code (NRC) */
+            SendNRC(recvMsg.data[0],  UDS_RESPONSE_SERVICE_NOT_SUPPORTED);
+            break;
+        }
+    }
 
     // // uint64_t ftmResolution;
 

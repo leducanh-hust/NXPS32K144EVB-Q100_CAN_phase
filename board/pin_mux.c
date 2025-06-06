@@ -47,8 +47,8 @@ BOARD_InitPins:
   - {pin_num: '8', peripheral: CAN0, signal: 'txd, txd', pin_signal: PTE5}
   - {pin_num: '22', peripheral: PORTD, signal: 'port, 15', pin_signal: PTD15, direction: OUTPUT}
   - {pin_num: '21', peripheral: PORTD, signal: 'port, 16', pin_signal: PTD16, direction: OUTPUT}
-  - {pin_num: '50', peripheral: PORTC, signal: 'port, 12', pin_signal: PTC12, direction: INPUT}
-  - {pin_num: '49', peripheral: PORTC, signal: 'port, 13', pin_signal: PTC13, direction: INPUT}
+  - {pin_num: '50', peripheral: PORTC, signal: 'port, 12', pin_signal: PTC12, direction: INPUT, IRQC: state_1011, PE: state_1}
+  - {pin_num: '49', peripheral: PORTC, signal: 'port, 13', pin_signal: PTC13, direction: INPUT, IRQC: state_1011, PE: state_1, initValue: state_0}
  * BE CAREFUL MODIFYING THIS COMMENT - IT IS YAML SETTINGS FOR TOOLS ***********
  */
 /* clang-format on */
@@ -58,12 +58,12 @@ pin_settings_config_t g_pin_mux_InitConfigArr0[NUM_OF_CONFIGURED_PINS0] = {
     {
         .base            = PORTC,
         .pinPortIdx      = 12U,
-        .pullConfig      = PORT_INTERNAL_PULL_NOT_ENABLED,
+        .pullConfig      = PORT_INTERNAL_PULL_DOWN_ENABLED,
         .driveSelect     = PORT_LOW_DRIVE_STRENGTH,
         .passiveFilter   = false,
         .mux             = PORT_MUX_AS_GPIO,
         .pinLock         = false,
-        .intConfig       = PORT_DMA_INT_DISABLED,
+        .intConfig       = PORT_INT_EITHER_EDGE,
         .clearIntFlag    = false,
         .gpioBase        = PTC,
         .direction       = GPIO_INPUT_DIRECTION,
@@ -73,12 +73,12 @@ pin_settings_config_t g_pin_mux_InitConfigArr0[NUM_OF_CONFIGURED_PINS0] = {
     {
         .base            = PORTC,
         .pinPortIdx      = 13U,
-        .pullConfig      = PORT_INTERNAL_PULL_NOT_ENABLED,
+        .pullConfig      = PORT_INTERNAL_PULL_DOWN_ENABLED,
         .driveSelect     = PORT_LOW_DRIVE_STRENGTH,
         .passiveFilter   = false,
         .mux             = PORT_MUX_AS_GPIO,
         .pinLock         = false,
-        .intConfig       = PORT_DMA_INT_DISABLED,
+        .intConfig       = PORT_INT_EITHER_EDGE,
         .clearIntFlag    = false,
         .gpioBase        = PTC,
         .direction       = GPIO_INPUT_DIRECTION,

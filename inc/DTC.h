@@ -10,28 +10,24 @@
 #include <stdint.h>
 #include "NVM.h"
 
+static inline uint32_t DTC_Code_Offset(uint8_t index)
+{
+    return DTC_CODE_OFFSET + index * DTC_CODE_SIZE;
+}
+
+static inline uint32_t DTC_Snapshot_Offset(uint8_t index)
+{
+    return DTC_SNAPSHOT_OFFSET + index * DTC_SNAPSHOT_SIZE;
+}
 
 /* DTC Structure */
 typedef struct
 {
-    uint32_t dtcCode;   /* DTC code (3 bytes typically) */
-    uint8_t statusByte; /* Status byte as per ISO 14229-1 */
+    uint32_t dtcCode;  /* DTC code (3 bytes typically) */
+    uint8_t *snapShot; /*In this demo, this is DTC Status Byte*/
+    uint32_t offset_index;
 } UDS_DTC_t;
 
-/* DTC Extended Data Record Structure */
-typedef struct
-{
-    uint32_t dtcCode;     /* DTC code associated with extended data */
-    uint8_t recordNumber; /* Record number */
-    uint8_t *data;        /* Extended data */
-    uint16_t dataLength;  /* Length of extended data */
-} UDS_DTC_ExtendedData_t;
-
-//UDS_DTC_t dtcDB[2] = {
-//    {0x00A3D800, 0x01, {0x08}, 0x01}, // DTC Description: Steering Button Stuck (Left button fault)
-//    {0x00A3D900, 0x01, {0x09}, 0x01}, // DTC Description: Trailer Reverse Steering Button Stuck ( Right button fault)
-//};
-
-
+extern UDS_DTC_t dtcDB[2];
 
 #endif /* DTC_H_ */

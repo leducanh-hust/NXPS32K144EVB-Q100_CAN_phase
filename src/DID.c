@@ -21,3 +21,4 @@ uint8_t writeECULifetime(uint8_t *data, uint8_t len)
         return 0;
     return 3;
 }
+

@@ -25,6 +25,7 @@
 /* Service 19 - Read DTC Information Sub-functions */
 #define SF_REPORT_NUMBER_OF_DTC_BY_STATUS_MASK 0x01
 #define SF_REPORT_DTC_BY_STATUS_MASK 0x02
+#define SF_REPORT_DTC_SNAPSHOT_RECORD_BY_DTC_NUMBER 0x04
 #define SF_REPORT_DTC_EXTENDED_DATA_RECORD_BY_DTC_NUMBER 0x06
 
 /* Negative Response Codes */
@@ -49,7 +50,6 @@
 #define DTC_FORMAT_ISO14229_1 0x02   /* ISO 14229-1 format */
 #define DTC_FORMAT_SAE_J1939_73 0x03 /* SAE J1939-73 format */
 
-
 #define MASTER
 /* #define SLAVE */
 
@@ -66,10 +66,9 @@
 #define RX_MSG_ID (0x768)
 #endif
 
-
 /******************************************************************************
  * Function prototypes
-******************************************************************************/
+ ******************************************************************************/
 
 /*Helper Functions*/
 void SendNRC(uint8_t SID, uint8_t NRC);
@@ -77,12 +76,12 @@ bool checkCondition(uint16_t did);
 
 /*Service Handler Functions*/
 
-void SF_UDS_ReportNumberOfDTCByStatusMask(const can_message_t *requestMsg); // Subfunction 0x01
-void SF_UDS_ReportDTCByStatusMask(const can_message_t *requestMsg); // Subfunction 0x02
-void SF_UDS_ReportDTCExtendedDataRecordByDTCNumber(const can_message_t *requestMsg); // Subfunction 0x06
+//void SF_UDS_ReportNumberOfDTCByStatusMask(const can_message_t *requestMsg);          // Subfunction 0x01
+//void SF_UDS_ReportDTCByStatusMask(const can_message_t *requestMsg);                  // Subfunction 0x02
+void SF_UDS_ReportDTCSnapshotByDTCNumber(const can_message_t *requestMsg); // Subfunction 0x06
 
-void UDS_ReadDTCInformation(const can_message_t *requestMsg); // Service 19 Handler
+void UDS_ReadDTCInformation(const can_message_t *requestMsg);    // Service 19 Handler
 void UDS_WriteDataByIdentifier(const can_message_t *requestMsg); // Service 22 Handler
-void UDS_ReadDataByIdentifier(const can_message_t *requestMsg); // Service 2E Handler
+void UDS_ReadDataByIdentifier(const can_message_t *requestMsg);  // Service 2E Handler
 
-#endif /* UDS_H_ */
+#endif /* UDS_H_ */`

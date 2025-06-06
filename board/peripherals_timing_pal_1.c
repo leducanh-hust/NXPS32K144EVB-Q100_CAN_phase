@@ -48,7 +48,7 @@ instance:
       - ftmExt:
         - ftmClockSource: 'FTM_CLOCK_SOURCE_EXTERNALCLK'
         - ftmPrescaler: 'FTM_CLOCK_DIVID_BY_128'
-        - finalValue: '65535'
+        - finalValue: '624'
       - chanConfigList:
         - 0:
           - channel: '0U'
@@ -87,7 +87,7 @@ const timer_chan_config_t timingFtmInst0_chanConfig[1] = {
 extension_ftm_for_timer_t timingFtmInst0_extension = {
    .clockSelect = FTM_CLOCK_SOURCE_EXTERNALCLK,
    .prescaler = FTM_CLOCK_DIVID_BY_128,
-   .finalValue = 65535
+   .finalValue = 624
 };
 
 /* Timing configuration */
